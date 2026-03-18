@@ -1,0 +1,6 @@
+matplotlib
+numpy
+asyncpg 
+python-dotenv
+flet[all]
+psycopg[binary]
