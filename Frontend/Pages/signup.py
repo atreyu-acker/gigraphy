@@ -83,3 +83,5 @@ def signup_view(page: ft.Page) -> ft.View:
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         vertical_alignment=ft.MainAxisAlignment.CENTER,
     )
+
+    

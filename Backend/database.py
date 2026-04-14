@@ -38,10 +38,19 @@ def add_XP(username, amount):
     conn.close()
 
 
-def update_password(password, userID):
+def update_password(password, confirm_password, userID):
     conn = psycopg.connect(db_url)
     cur = conn.cursor()
 
+    if password != confirm_password:
+        return False, "password_mismatch"
+    
+    elif len(password) < 8:
+        return False, "password_too_short"
+    
+    elif not any(char.isdigit() for char in password):
+        return False, "password_no_number"
+    
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
     
     print(f"Updating password for userID {userID} to {hashed.decode()}")
@@ -51,6 +60,8 @@ def update_password(password, userID):
     conn.commit()
     cur.close()
     conn.close()
+
+    return True, "success"
 
 
 def get_leaderboard(limit=10):

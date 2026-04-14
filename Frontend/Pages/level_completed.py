@@ -23,9 +23,9 @@ def level_completed(page: ft.Page) -> ft.View:
                 alignment=ft.MainAxisAlignment.CENTER,
                 spacing=24,
                 controls=[
-                    ft.Text(f"Well done {page.session.get('username')} Level Complete!", size=32, weight=ft.FontWeight.BOLD),
+                    ft.Text(f"Well done {page.session.get('username')}, Level Complete!", size=32, weight=ft.FontWeight.BOLD),
                     ft.Text(f"Difficulty: {difficulty}", size=18),
-                    ft.Text(f"Score + : {XP_dictionary[difficulty]}", size=24, weight=ft.FontWeight.BOLD),
+                    ft.Text(f"Score + {XP_dictionary[difficulty]}", size=24, weight=ft.FontWeight.BOLD),
                     ft.ElevatedButton(
                         "Continue",
                         width=200,

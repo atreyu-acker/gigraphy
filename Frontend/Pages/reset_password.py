@@ -12,15 +12,31 @@ def reset_password(page):
         confirm_password = confirm_field.value
         userID = page.session.get("userID")
 
-        if password == confirm_password:
-            update_password(password, userID)
+        success, result = update_password(password, confirm_password, userID) 
+
+        if success:
             message.value = "Password reset successful"
             message.color = "green"
+            
         else:
-            message.value = "Passwords do not match"
+            if result == "email_exists":
+                message.value = "Email already exists"
+            elif result == "username_exists":
+                message.value = "Username already exists"
+            elif result == "password_mismatch":
+                message.value = "Passwords do not match"
+            elif result == "password_too_short":
+                message.value = "Password must be at least 8 characters"
+            elif result == "password_no_number":
+                message.value = "Password must contain at least one number"
+            elif result == "security_info_missing":
+                message.value = "Please provide security question info"
+            else:
+                message.value = "Unknown error"
             message.color = "red"
-        
-        message.update()
+            message.update()
+            
+            message.update()
 
     page.update()
 
