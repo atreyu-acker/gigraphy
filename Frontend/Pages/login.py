@@ -7,7 +7,7 @@ def login_view(page: ft.Page) -> ft.View:
 
     form_email = ft.TextField(label="Email", width=400)
     form_password = ft.TextField(label="Password", password=True, can_reveal_password=True, width=400)
-    errorMessage1 = ft.Text("")  
+    errorMessage1 = ft.Text("")
     errorMessage2 = ft.Text("", visible=False)
     forgot_password = ft.TextButton("Forgot Password?", on_click=lambda _: forgot_password_handler())
     security_answer_field = ft.TextField(label="Security Answer", visible=False, width=400)
@@ -29,9 +29,9 @@ def login_view(page: ft.Page) -> ft.View:
         errorMessage1.value = ""
         page.update()
         
-        security_question_field.visible = True 
-        security_answer_field.visible = True  
-        reset_password_button.visible = True 
+        security_question_field.visible = True
+        security_answer_field.visible = True
+        reset_password_button.visible = True
         user = database.get_user(form_email.value)
         security_question = ft.Text(f"Security Question: {user[4]}")
         security_question_field.value = security_question.value
@@ -56,9 +56,6 @@ def login_view(page: ft.Page) -> ft.View:
 
     def login_handler(e: ft.ControlEvent):
         user = database.get_user(form_email.value)
-        print(user[2].encode())
-        print(form_password.value.encode())
-        print(user[2])
         if user and bcrypt.checkpw(form_password.value.encode(), user[2].encode()):
             page.session.set("username", user[3])
             page.session.set("XP", user[6])

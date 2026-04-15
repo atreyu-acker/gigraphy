@@ -9,11 +9,18 @@ difficulty_map = {
 }
 
 SECTION_WIDTH = 25
+ROOT_MARGIN = 2
+QUADRATIC_Y_MIN = -20
+QUADRATIC_Y_MAX = 70
+MAX_QUADRATIC_ATTEMPTS = 100
+QUADRATIC_A_MAGNITUDES = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
+LOW_A_VERTEX_MAGNITUDES = set(QUADRATIC_A_MAGNITUDES[: len(QUADRATIC_A_MAGNITUDES) // 2])
 
 def generate_linear_section(x_start, x_end, y_start):
+    section_width = x_end - x_start
     y_end = np.random.randint(0, 51)
-    m = round((y_end - y_start) / (x_end - x_start), 2)
-    c = round(y_start - m * x_start, 2)
+    m = round((y_end - y_start) / section_width, 2)
+    c = round(float(y_start), 2)
     return {
         "x_start": x_start,
         "x_end": x_end,
@@ -23,101 +30,113 @@ def generate_linear_section(x_start, x_end, y_start):
         "equation_type": "linear"
     }
 
-"""def generate_quadratic_section(x_start, x_end, y_start):
-    section_width = x_end - x_start
-
-    # pick vertex position in local coordinates
-    vertex_x = np.random.randint(5, section_width - 5)
-    
-    # pick a so curve is visible but not too steep
-    a = np.random.choice([0.05, 0.1, 0.15, -0.05, -0.1, -0.15])
-
-    # vertex y is constrained so curve stays roughly visible
-    # for upward curve vertex should be below y_start
-    # for downward curve vertex should be above y_start
-    if a > 0:
-        vertex_y = np.random.randint(max(0, int(y_start) - 20), int(y_start) + 5)
-    else:
-        vertex_y = np.random.randint(int(y_start) - 5, min(50, int(y_start) + 20))
-
-    # expand y = a(x - vertex_x)^2 + vertex_y
-    # = ax^2 - 2a*vertex_x*x + a*vertex_x^2 + vertex_y
-    b = round(-2 * a * vertex_x, 2)
-    c = round(a * vertex_x**2 + vertex_y, 2)
-
-    # generate curve in local coordinates
-    x_values = np.linspace(0, section_width, 300)
-    y_values = a * x_values**2 + b * x_values + c
-
-    # y_start is the value at x=0 in local coords which is just c
-    # adjust c so curve starts at y_start
-    y_offset = y_start - float(a * 0**2 + b * 0 + c)
-    # which simplifies to:
-    y_offset = y_start - c
-    
-    # apply offset to c and vertex_y
-    c = round(c + y_offset, 2)
-    vertex_y = round(vertex_y + y_offset, 2)
-
-    # recalculate y_values with corrected c
-    y_values = a * x_values**2 + b * x_values + c
-
-    # calculate actual roots from corrected equation
-    discriminant = b**2 - 4 * a * c
-    roots = []
-    if discriminant >= 0:
-        root1 = round((-b + np.sqrt(discriminant)) / (2 * a), 2)
-        root2 = round((-b - np.sqrt(discriminant)) / (2 * a), 2)
-        roots = [root1, root2]
-
-    y_end = round(float(a * section_width**2 + b * section_width + c), 2)
-
-    return {
-        "x_start": x_start,
-        "x_end": x_end,
-        "y_start": y_start,
-        "y_end": y_end,
-        "x_values": x_values + x_start,
-        "y_values": y_values,
-        "coefficients": {"a": a, "b": b, "c": c},
-        "roots": roots,
-        "vertex": (round(vertex_x + x_start, 2), round(vertex_y, 2)),
-        "equation_type": "quadratic"
-    }
-
-"""
-
 def generate_quadratic_section(x_start, x_end, y_start):
     section_width = x_end - x_start
-
-    if x_start == 0:
-        root1 = 0
-    else:
-        root1 = np.random.randint(2, section_width - 2)
-
-    root2 = np.random.randint(2, section_width - 2)
-    
-    while root2 == root1:
-        root2 = np.random.randint(2, section_width - 2)
-
-    a = np.random.choice([0.1, 0.2, -0.1, -0.2])
-    b = round(-a * (root1 + root2), 2)
-    c = round(a * root1 * root2, 2)
-    
+    root_low = ROOT_MARGIN
+    root_high = section_width - ROOT_MARGIN
     x_values = np.linspace(0, section_width, 300)
-    y_values = a * x_values**2 + b * x_values + c
 
-    y_offset = y_start - c                # we need an x offset because the roots are not in the right place.
-    y_values = y_values + y_offset
-    c = round(c + y_offset, 2)
-    
-    y_end = round(float(a * section_width**2 + b * section_width + c), 2)
-    
-    print(f"Generated roots: {root1}, {root2}")
-    print(f"a={a}, b={b}, c={c}")
-    print(f"y at root1: {a * root1**2 + b * root1 + c}")
-    print(f"y at root2: {a * root2**2 + b * root2 + c}")
-    
+    def in_bounds(a_val, b_val, c_val):
+        probe_x = [0.0, float(section_width)]
+        turning_x = -b_val / (2 * a_val)
+        if 0 <= turning_x <= section_width:
+            probe_x.append(float(turning_x))
+        probe_y = [a_val * x**2 + b_val * x + c_val for x in probe_x]
+        return min(probe_y) >= QUADRATIC_Y_MIN and max(probe_y) <= QUADRATIC_Y_MAX
+
+    low_pool = [v for v in QUADRATIC_A_MAGNITUDES if v in LOW_A_VERTEX_MAGNITUDES]
+    high_pool = [v for v in QUADRATIC_A_MAGNITUDES if v not in LOW_A_VERTEX_MAGNITUDES]
+    target_formula_type = str(np.random.choice(["quadratic_vertex", "quadratic_standard"]))
+    target_pool = low_pool if target_formula_type == "quadratic_vertex" else high_pool
+    alternate_pool = high_pool if target_formula_type == "quadratic_vertex" else low_pool
+
+    def try_generate_for_pool(magnitude_pool):
+        for _ in range(MAX_QUADRATIC_ATTEMPTS):
+            if x_start == 0:
+                root1 = 0
+            else:
+                root1 = np.random.randint(root_low, root_high)
+
+            root2 = np.random.randint(root_low, root_high)
+            while root2 == root1:
+                root2 = np.random.randint(root_low, root_high)
+
+            a_mag = float(np.random.choice(magnitude_pool))
+            a_sign = int(np.random.choice([-1, 1]))
+            a = round(a_mag * a_sign, 2)
+            b = round(-a * (root1 + root2), 2)
+            c = round(a * root1 * root2, 2)
+
+            y_offset = y_start - c
+            c = round(c + y_offset, 2)
+            if not in_bounds(a, b, c):
+                continue
+
+            y_end = round(float(a * section_width**2 + b * section_width + c), 2)
+            y_values = a * x_values**2 + b * x_values + c
+
+            discriminant = b**2 - 4 * a * c
+            roots = []
+            if discriminant >= 0:
+                sqrt_disc = np.sqrt(discriminant)
+                roots = [
+                    float((-b + sqrt_disc) / (2 * a)),
+                    float((-b - sqrt_disc) / (2 * a)),
+                ]
+
+            if a_mag in LOW_A_VERTEX_MAGNITUDES:
+                q_exact = b / (2 * a)
+                p_exact = c - a * (q_exact**2)
+                answer_coefficients = {
+                    "a": round(a, 2),
+                    "q": round(float(q_exact), 2),
+                    "p": round(float(p_exact), 2),
+                }
+                formula_type = "quadratic_vertex"
+            else:
+                answer_coefficients = {"a": a, "b": b, "c": c}
+                formula_type = "quadratic_standard"
+
+            return {
+                "x_start": x_start,
+                "x_end": x_end,
+                "y_start": y_start,
+                "y_end": y_end,
+                "x_values": x_values + x_start,
+                "y_values": y_values,
+                "coefficients": {"a": a, "b": b, "c": c},
+                "answer_coefficients": answer_coefficients,
+                "formula_type": formula_type,
+                "roots": roots,
+                "equation_type": "quadratic"
+            }
+        return None
+
+    generated = try_generate_for_pool(target_pool)
+    if generated is not None:
+        return generated
+
+    generated = try_generate_for_pool(alternate_pool)
+    if generated is not None:
+        return generated
+
+    fallback_a = 0.2
+    fallback_r1, fallback_r2 = 8, 17
+    b = round(-fallback_a * (fallback_r1 + fallback_r2), 2)
+    c = round(fallback_a * fallback_r1 * fallback_r2, 2)
+    c = round(c + (y_start - c), 2)
+    y_end = round(float(fallback_a * section_width**2 + b * section_width + c), 2)
+    y_values = fallback_a * x_values**2 + b * x_values + c
+    discriminant = b**2 - 4 * fallback_a * c
+    roots = []
+    if discriminant >= 0:
+        sqrt_disc = np.sqrt(discriminant)
+        roots = [
+            float((-b + sqrt_disc) / (2 * fallback_a)),
+            float((-b - sqrt_disc) / (2 * fallback_a)),
+        ]
+    q_exact = b / (2 * fallback_a)
+    p_exact = c - fallback_a * (q_exact**2)
     return {
         "x_start": x_start,
         "x_end": x_end,
@@ -125,21 +144,23 @@ def generate_quadratic_section(x_start, x_end, y_start):
         "y_end": y_end,
         "x_values": x_values + x_start,
         "y_values": y_values,
-        "coefficients": {"a": a, "b": b, "c": c},
-        "roots": [root1, root2],
+        "coefficients": {"a": fallback_a, "b": b, "c": c},
+        "answer_coefficients": {"a": fallback_a, "q": round(float(q_exact), 2), "p": round(float(p_exact), 2)},
+        "formula_type": "quadratic_vertex",
+        "roots": roots,
         "equation_type": "quadratic"
     }
 
 
 
 def generate_level(difficulty):
-    equation_types = difficulty_map[difficulty]
+    equation_types = difficulty_map[difficulty][:]
 
     np.random.shuffle(equation_types)
     
     sections = []
     y_current = np.random.randint(0, 26)
-    section_width = 25  
+    section_width = 25
     
     for i, eq_type in enumerate(equation_types):
         x_start = i * section_width
@@ -147,6 +168,8 @@ def generate_level(difficulty):
         
         if eq_type == "linear":
             section = generate_linear_section(x_start, x_end, y_current)
+            section["answer_coefficients"] = dict(section["coefficients"])
+            section["formula_type"] = "linear_standard"
         elif eq_type == "quadratic":
             section = generate_quadratic_section(x_start, x_end, y_current)
         
@@ -157,9 +180,9 @@ def generate_level(difficulty):
 
 
 
-def extend_linear(ax, m, c, x_from, x_to, color):
-    y_from = m * x_from + c
-    y_to = m * x_to + c
+def extend_linear(ax, m, c, x_from, x_to, x_start_global, color):
+    y_from = m * (x_from - x_start_global) + c
+    y_to = m * (x_to - x_start_global) + c
     ax.plot(
         [x_from, x_to],
         [y_from, y_to],
@@ -189,20 +212,13 @@ def calculate_significant_points(section):
     points = []
 
     if section["equation_type"] == "linear":
-        m = section["coefficients"]["m"]
         c = section["coefficients"]["c"]
 
-        
         if section["x_start"] == 0:
             points.append((0, round(c, 2)))
 
-        
-        if m != 0:
-            x_int = round(-c / m, 2)
-            points.append((x_int, 0))
-
-        
         points.append((section["x_start"], section["y_start"]))
+        points.append((section["x_end"], section["y_end"]))
 
     elif section["equation_type"] == "quadratic":
         a = section["coefficients"]["a"]
@@ -215,19 +231,18 @@ def calculate_significant_points(section):
 
         
         for root in section["roots"]:
-            global_root = round(root + section["x_start"], 2)
+            global_root = root + section["x_start"]
             points.append((global_root, 0))
 
         
-        turning_x_local = round(-b / (2 * a), 2)
-        turning_x_global = round(turning_x_local + section["x_start"], 2)
-        turning_y = round(float(
+        turning_x_local = -b / (2 * a)
+        turning_x_global = turning_x_local + section["x_start"]
+        turning_y = float(
             a * turning_x_local**2 + b * turning_x_local + c
-        ), 2)
+        )
         points.append((turning_x_global, turning_y))
 
         
         points.append((section["x_start"], section["y_start"]))
 
     return points
-
