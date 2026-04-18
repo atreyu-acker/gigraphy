@@ -1,6 +1,7 @@
 import psycopg
 import os
 import bcrypt
+from datetime import date
 from dotenv import load_dotenv
 load_dotenv()
 db_url = os.getenv("DATABASE_URL")
@@ -14,13 +15,14 @@ def check_connection():
         print(f"Connection failed: {e}")
 
 
+# all of my queries are using single '' because i thought i was having a problem when using "" (i was wrong but too lazy to change back).
+
 def get_user(email):
     conn = psycopg.connect(db_url)
     cur = conn.cursor()
 
     cur.execute('SELECT * FROM users WHERE email = %s;', (email,))
     result = cur.fetchone() 
-    print(result)
 
     cur.close()
     conn.close()
@@ -53,7 +55,6 @@ def update_password(password, confirm_password, userID):
     
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
     
-    print(f"Updating password for userID {userID} to {hashed.decode()}")
     cur.execute('UPDATE users SET password = %s WHERE userID = %s', (hashed.decode(), userID))
 
 
@@ -80,17 +81,44 @@ def get_XP(username):
     conn = psycopg.connect(db_url)
     cur = conn.cursor()
 
-    cur.execute('SELECT XP FROM users WHERE username = %s;', (username,))
-    new_XP = cur.fetchone()[0] # fetchone returns a tuple, so we take the first element which is the XP value
+    cur.execute('SELECT XP FROM users WHERE username = %s', (username,))
+    new_XP = cur.fetchone()[0] # fetchone returns a tuple that looks like this (XP,), so we take the first element which is the XP value.
 
     cur.close()
     conn.close()
 
     return new_XP
 
+def add_history(userID, difficulty, completed, XP):
+    today = date.today()
+
+    conn = psycopg.connect(db_url)
+    cur = conn.cursor()
+
+    cur.execute('INSERT INTO history (userID, level_difficulty, completed, attempt_date, XP_gained)  VALUES (%s, %s, %s, %s, %s)', (userID, difficulty, completed, today, XP))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def get_history(userID, limit):
+    conn = psycopg.connect(db_url)
+    cur = conn.cursor()
+
+    # dates are ordered from newest to oldest so i want to order by descending. 
+    cur.execute('SELECT level_difficulty, completed, attempt_date, XP_gained FROM history WHERE userID = %s ORDER BY attempt_date DESC LIMIT %s', (userID,limit))
+    result = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return result
+    
 
 def create_user(email, password, confirm_password, username, security_question, security_answer):
 
+    email = email.strip().lower()
     security_answer = security_answer.lower().strip()
     if password != confirm_password:
         return False, "password_mismatch"
@@ -157,52 +185,23 @@ def create_every_table():
     print("Table users now exists!")
 
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS levels (
-            levelID SERIAL PRIMARY KEY,
-            level_number INTEGER NOT NULL,
-            difficulty TEXT NOT NULL,
-            max_points INTEGER
+        CREATE TABLE IF NOT EXISTS history (
+            historyID SERIAL PRIMARY KEY,
+            userID INTEGER NOT NULL,
+            level_difficulty VARCHAR(10),
+            completed BOOL,
+            attempt_date DATE,
+            XP_gained INTEGER
             
         );
     """)
 
-    print("Table levels now exists!")
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS equations (
-            equationID SERIAL PRIMARY KEY,
-            levelID INTEGER NOT NULL,
-            equation_type TEXT NOT NULL,
-            a INTEGER,
-            b INTEGER,
-            c INTEGER,
-            d INTEGER,
-            FOREIGN KEY (levelID) REFERENCES levels(levelID)            
-        );
-    """)
-    print("Table equations now exists!")
-
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS attempts (
-            attemptID SERIAL PRIMARY KEY,
-            userID INTEGER NOT NULL,
-            levelID INTEGER NOT NULL,
-            score INTEGER,
-            time_taken REAL,
-            success BOOLEAN,
-            attempt_date TIMESTAMP,
-            FOREIGN KEY (userID) REFERENCES users(userID),
-            FOREIGN KEY (levelID) REFERENCES levels(levelID)
-                        
-        );
-    """)
+    print("Table history now exists!")
 
 
     conn.commit()
     cur.close()
     conn.close()
-    print("Table attempts now exists!")
 
 if __name__ == "__main__":
     check_connection()

@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 from Algorithms.graph_alg import generate_level
 from Frontend.draw_graphs import draw_sections
 from Algorithms.checker_alg import check_coefficients
+from Backend.database import add_history
 
 
 
-def game_play(page: ft.Page) -> ft.View:
+def game_play(page):
     page.title = "Gigraphy Play Screen"
 
     difficulty = page.session.get("difficulty")
@@ -63,10 +64,12 @@ def game_play(page: ft.Page) -> ft.View:
     input_fields = {}
     build_input_fields()
 
-    def check_answer(e):
+    def check_answer():
         user_inputs = {key: field.value for key, field in input_fields.items()}
         correct = sections[current_section[0]]["answer_coefficients"]
         all_correct, results = check_coefficients(user_inputs, correct)
+        print(correct)
+        print(all_correct, results)
 
         for key, result in results.items():
             field = input_fields[key]
@@ -104,9 +107,12 @@ def game_play(page: ft.Page) -> ft.View:
             feedback.value = "Not quite — check the highlighted fields"
             feedback.color = "red"
 
-        feedback.update()
+        if feedback.page:
+            feedback.update()
 
-    def quit_level(e):
+    def quit_level(_):
+        userID = page.session.get("userID")
+        add_history(userID, difficulty, False, 0)
         page.go("/game_home")
 
    
@@ -133,7 +139,7 @@ def game_play(page: ft.Page) -> ft.View:
             ft.Text("Find the equation:", size=15),
             eq_formula_field,
             input_container,
-            ft.ElevatedButton("Submit Answer", on_click=check_answer),
+            ft.ElevatedButton("Submit Answer", on_click=lambda _: check_answer()),
             feedback,
         ]
     )

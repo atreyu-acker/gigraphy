@@ -1,19 +1,24 @@
 import flet as ft
-from Backend.database import add_XP, get_XP 
+from Backend.database import add_XP
+from Backend.database import add_history
 
-def level_completed(page: ft.Page) -> ft.View:
+
+def level_completed(page):
     difficulty = page.session.get("difficulty")
+    userID = page.session.get("userID")
 
     XP_dictionary = {
         "Beginner": 10,
         "Easy": 20,
-        "Medium": 30,
-        "Hard": 40,
-        "Expert": 50
+        "Medium": 40,
+        "Hard": 60,
+        "Expert": 90
     }   
 
-    add_XP(page.session.get("username"), XP_dictionary[difficulty])
+    XP_gain = XP_dictionary[difficulty]
 
+    add_XP(page.session.get("username"), XP_gain)
+    add_history(userID, difficulty, True, XP_gain)
     
     return ft.View(
         route="/level_completed",

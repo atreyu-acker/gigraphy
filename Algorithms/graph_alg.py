@@ -1,5 +1,6 @@
 import numpy as np
 
+# this is the difficulty map which determines which levels have how many sections with which graphes.
 difficulty_map = {
     "Beginner": ["linear", "linear"],
     "Easy":     ["linear", "linear", "quadratic"],
@@ -8,19 +9,24 @@ difficulty_map = {
     "Expert":   ["quadratic", "quadratic", "quadratic", "quadratic", "quadratic"],
 }
 
-SECTION_WIDTH = 25
-ROOT_MARGIN = 2
-QUADRATIC_Y_MIN = -20
-QUADRATIC_Y_MAX = 70
-MAX_QUADRATIC_ATTEMPTS = 100
-QUADRATIC_A_MAGNITUDES = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
-LOW_A_VERTEX_MAGNITUDES = set(QUADRATIC_A_MAGNITUDES[: len(QUADRATIC_A_MAGNITUDES) // 2])
+# these are my global variable, however, i have been careful and only have constants that are never changed in the code. 
+SECTION_WIDTH = 25 # sets the width of the sections containing the graphs.
+ROOT_MARGIN = 2 # this is a border that tries to place roots in visually nice location rather than right on the border of a section.
+QUADRATIC_Y_MIN = -20 # the min hight 
+QUADRATIC_Y_MAX = 70 # the max hight
+MAX_QUADRATIC_ATTEMPTS = 100 # this is the limit of draw attempts before the fallback is used.
+QUADRATIC_A_MAGNITUDES = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60] # having a list of a values allows me to split them in half to determine the formula.
+LOW_A_VERTEX_MAGNITUDES = QUADRATIC_A_MAGNITUDES[: len(QUADRATIC_A_MAGNITUDES) // 2] # a list of the lowest half of the a values. this influences the likelyhood of getting specific formula types.
+HIGH_A_VERTEX_MAGNITUDES = QUADRATIC_A_MAGNITUDES[len(QUADRATIC_A_MAGNITUDES) // 2 :] # the top half of the list.
 
-def generate_linear_section(x_start, x_end, y_start):
-    section_width = x_end - x_start
-    y_end = np.random.randint(0, 51)
-    m = round((y_end - y_start) / section_width, 2)
-    c = round(float(y_start), 2)
+
+# this function is called by generate_level and returns a dictionary to the variable sections.
+def generate_linear_section(x_start, x_end, y_start): 
+    y_end = np.random.randint(0, 51) # the randomly generated y_end where the graph ends.
+    m = round(float((y_end - y_start) / SECTION_WIDTH), 2) # finds the gradient.
+    c = round(float(y_start), 2) # c is the y_start of the graph. 
+
+    # this is the dictionary value returned.
     return {
         "x_start": x_start,
         "x_end": x_end,
@@ -30,38 +36,45 @@ def generate_linear_section(x_start, x_end, y_start):
         "equation_type": "linear"
     }
 
+
+# this function is also called by generate_level and returns a slightly larger dictionary than the linear.
 def generate_quadratic_section(x_start, x_end, y_start):
-    section_width = x_end - x_start
-    root_low = ROOT_MARGIN
-    root_high = section_width - ROOT_MARGIN
-    x_values = np.linspace(0, section_width, 300)
 
-    def in_bounds(a_val, b_val, c_val):
-        probe_x = [0.0, float(section_width)]
-        turning_x = -b_val / (2 * a_val)
-        if 0 <= turning_x <= section_width:
-            probe_x.append(float(turning_x))
-        probe_y = [a_val * x**2 + b_val * x + c_val for x in probe_x]
-        return min(probe_y) >= QUADRATIC_Y_MIN and max(probe_y) <= QUADRATIC_Y_MAX
+    # this is a very important line that creates a list of 300 x coordinates between 0 and 25 (the section width).
+    # this is used by matplotlib in draw_graphs.
+    x_values = np.linspace(0, SECTION_WIDTH, 300)
 
-    low_pool = [v for v in QUADRATIC_A_MAGNITUDES if v in LOW_A_VERTEX_MAGNITUDES]
-    high_pool = [v for v in QUADRATIC_A_MAGNITUDES if v not in LOW_A_VERTEX_MAGNITUDES]
-    target_formula_type = str(np.random.choice(["quadratic_vertex", "quadratic_standard"]))
-    target_pool = low_pool if target_formula_type == "quadratic_vertex" else high_pool
-    alternate_pool = high_pool if target_formula_type == "quadratic_vertex" else low_pool
+    # this function checks if the quadratic lies within the y limits and returns True or False.
+    def in_bounds(y_values):
+        # it takes all y_values to see if the min or max falls ouside the range of the graph.
+        if min(y_values) >= QUADRATIC_Y_MIN and max(y_values) <= QUADRATIC_Y_MAX:
+            return True
+        return False
+        
+    # this variable picks randomly if the quadratic will be 
+    formula_type = str(np.random.choice(["quadratic_vertex", "quadratic_standard"]))
+   
+    def try_generate_for_pool(formula_type, target):
+        for attempts in range(MAX_QUADRATIC_ATTEMPTS):
+            print(attempts)
+            
+            root1 = np.random.randint(ROOT_MARGIN, SECTION_WIDTH - ROOT_MARGIN)
+            root2 = np.random.randint(ROOT_MARGIN, SECTION_WIDTH - ROOT_MARGIN)
 
-    def try_generate_for_pool(magnitude_pool):
-        for _ in range(MAX_QUADRATIC_ATTEMPTS):
-            if x_start == 0:
-                root1 = 0
-            else:
-                root1 = np.random.randint(root_low, root_high)
-
-            root2 = np.random.randint(root_low, root_high)
             while root2 == root1:
-                root2 = np.random.randint(root_low, root_high)
+                root2 = np.random.randint(ROOT_MARGIN, SECTION_WIDTH - ROOT_MARGIN)
 
-            a_mag = float(np.random.choice(magnitude_pool))
+            if formula_type == "quadratic_standard":
+                if target == True:
+                    a_mag = float(np.random.choice(HIGH_A_VERTEX_MAGNITUDES))
+                else:
+                    a_mag = float(np.random.choice(LOW_A_VERTEX_MAGNITUDES))
+            else:
+                if target == True:
+                    a_mag = float(np.random.choice(LOW_A_VERTEX_MAGNITUDES))
+                else:
+                    a_mag = float(np.random.choice(HIGH_A_VERTEX_MAGNITUDES))
+
             a_sign = int(np.random.choice([-1, 1]))
             a = round(a_mag * a_sign, 2)
             b = round(-a * (root1 + root2), 2)
@@ -69,10 +82,12 @@ def generate_quadratic_section(x_start, x_end, y_start):
 
             y_offset = y_start - c
             c = round(c + y_offset, 2)
-            if not in_bounds(a, b, c):
+            y_values = a * x_values**2 + b * x_values + c
+
+            if not in_bounds(y_values):
                 continue
 
-            y_end = round(float(a * section_width**2 + b * section_width + c), 2)
+            y_end = round(float(a * SECTION_WIDTH**2 + b * SECTION_WIDTH + c), 2)
             y_values = a * x_values**2 + b * x_values + c
 
             discriminant = b**2 - 4 * a * c
@@ -84,7 +99,7 @@ def generate_quadratic_section(x_start, x_end, y_start):
                     float((-b - sqrt_disc) / (2 * a)),
                 ]
 
-            if a_mag in LOW_A_VERTEX_MAGNITUDES:
+            if formula_type == "quadratic_vertex":
                 q_exact = b / (2 * a)
                 p_exact = c - a * (q_exact**2)
                 answer_coefficients = {
@@ -92,10 +107,9 @@ def generate_quadratic_section(x_start, x_end, y_start):
                     "q": round(float(q_exact), 2),
                     "p": round(float(p_exact), 2),
                 }
-                formula_type = "quadratic_vertex"
+                
             else:
                 answer_coefficients = {"a": a, "b": b, "c": c}
-                formula_type = "quadratic_standard"
 
             return {
                 "x_start": x_start,
@@ -110,22 +124,24 @@ def generate_quadratic_section(x_start, x_end, y_start):
                 "roots": roots,
                 "equation_type": "quadratic"
             }
+            
         return None
 
-    generated = try_generate_for_pool(target_pool)
+    generated = try_generate_for_pool(formula_type, target=True)
     if generated is not None:
         return generated
 
-    generated = try_generate_for_pool(alternate_pool)
+    generated = try_generate_for_pool(formula_type, target=False)
     if generated is not None:
         return generated
 
+    print("fallback triggered")
     fallback_a = 0.2
     fallback_r1, fallback_r2 = 8, 17
     b = round(-fallback_a * (fallback_r1 + fallback_r2), 2)
     c = round(fallback_a * fallback_r1 * fallback_r2, 2)
     c = round(c + (y_start - c), 2)
-    y_end = round(float(fallback_a * section_width**2 + b * section_width + c), 2)
+    y_end = round(float(fallback_a * SECTION_WIDTH**2 + b * SECTION_WIDTH + c), 2)
     y_values = fallback_a * x_values**2 + b * x_values + c
     discriminant = b**2 - 4 * fallback_a * c
     roots = []

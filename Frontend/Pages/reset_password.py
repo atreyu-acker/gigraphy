@@ -7,7 +7,7 @@ def reset_password(page):
     confirm_field = ft.TextField(label="Confirm Password", password=True, width=400)
     message = ft.Text()
 
-    def handle_reset(e):
+    def handle_reset(_):
         password = password_field.value
         confirm_password = confirm_field.value
         userID = page.session.get("userID")
@@ -15,8 +15,7 @@ def reset_password(page):
         success, result = update_password(password, confirm_password, userID) 
 
         if success:
-            message.value = "Password reset successful"
-            message.color = "green"
+            page.go("/login")
             
         else:
             if result == "email_exists":
@@ -49,7 +48,7 @@ def reset_password(page):
             confirm_field,
             message,
             ft.ElevatedButton("Password Reset", on_click=handle_reset),
-            ft.ElevatedButton("Login", on_click=lambda _: page.go("/login")),
+            ft.ElevatedButton("Go back", on_click=lambda _:page.go("/login"))
         ],
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         vertical_alignment=ft.MainAxisAlignment.CENTER,

@@ -2,15 +2,11 @@ import flet as ft
 from Backend.database import get_leaderboard
 
 
-leaderboard_text = ft.Text("Leaderboard", size=30, weight=ft.FontWeight.BOLD)
-
-
-def leaderboard(page: ft.Page) -> ft.View:
+def leaderboard(page):
     page.title = "Leaderboard"
-
     data = get_leaderboard(30)
-
     rows = []
+    leaderboard_text = ft.Text("Leaderboard", size=30, weight=ft.FontWeight.BOLD)
 
     for i, (username, xp) in enumerate(data, start=1):
         rows.append(

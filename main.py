@@ -7,6 +7,8 @@ from Frontend.Pages.game_play import game_play
 from Frontend.Pages.level_completed import level_completed
 from Frontend.Pages.reset_password import reset_password
 from Frontend.Pages.leaderboard import leaderboard
+from Frontend.Pages.history import history
+
 
 def main(page: ft.Page) -> None:
     page.title = "Gigraphy"
@@ -24,6 +26,7 @@ def main(page: ft.Page) -> None:
         "/level_completed": level_completed,
         "/reset_password": reset_password,
         "/leaderboard": leaderboard,
+        "/history": history
     }
 
     def route_change(route):
